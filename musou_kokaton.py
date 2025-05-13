@@ -4,6 +4,7 @@ import random
 import sys
 import time
 import pygame as pg
+import math
 
 
 WIDTH = 1100  # ゲームウィンドウの幅
@@ -126,6 +127,7 @@ class Bomb(pg.sprite.Sprite):
         self.rect.centerx = emy.rect.centerx
         self.rect.centery = emy.rect.centery+emy.rect.height//2
         self.speed = 6
+        self.state = "active" 
 
     def update(self):
         """
@@ -241,6 +243,29 @@ class Score:
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         screen.blit(self.image, self.rect)
 
+class EMP:
+    """
+    電磁パルスに関するクラス
+    """
+    def __init__(self,emys:pg.sprite.Group,bombs:pg.sprite.Group,screen:pg.Surface):
+        """
+        EMPクラスのイニシャライザにEnemyインスタンスのグループ
+        Bombインスタンスのグループ,画面Surfaceを渡す
+        """
+        for emy in emys:
+            emy.interval = math.inf # ボム発射頻度(無限　発射しない)
+            emy.image = pg.transform.laplacian(emy.image)
+        for bomb in bombs:
+            bomb.speed = bomb.speed/2 # ボム速度
+            bomb.state = "inactive" # 起爆(しない)設定
+        image = pg.Surface((WIDTH,HEIGHT))
+        pg.draw.rect(image,(255,255,0),(0,0,WIDTH,HEIGHT)) # 背景　黄色　座標
+        image.set_alpha(128) # 背景透明度
+        screen.blit(image,(0,0)) # スクリーンにブリット
+        pg.display.update()
+        time.sleep(2) # EMP発動後の硬直時間
+
+        
 
 def main():
     pg.display.set_caption("真！こうかとん無双")
@@ -263,6 +288,9 @@ def main():
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird))
+            if event.type == pg.KEYDOWN and event.key == pg.K_e: # EMP発動キー
+                if score.value >= 20: # EMP発動条件(スコア)
+                    EMP(emys,bombs,screen)
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
@@ -283,11 +311,14 @@ def main():
             score.value += 1  # 1点アップ
 
         for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
+            if bomb.state=="inactive":
+                continue
             bird.change_img(8, screen)  # こうかとん悲しみエフェクト
             score.update(screen)
             pg.display.update()
             time.sleep(2)
             return
+        
 
         bird.update(key_lst, screen)
         beams.update()
